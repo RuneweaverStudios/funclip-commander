@@ -66,7 +66,7 @@ VENV_PATH = _config.get("venv_path", "")
 python_executable = os.path.join(VENV_PATH, "bin", "python3") if VENV_PATH else ""
 BUZZ_PYTHON_EXECUTABLE = _config.get("buzz_python", "")
 
-DOWNLOAD_BASE_DIR = os.path.join(SKILL_DIR, "..", "..", "youtube_downloads")
+DOWNLOAD_BASE_DIR = _config.get("download_base_dir", os.path.join(SKILL_DIR, "..", "..", "youtube_downloads"))
 
 PROCESSED_LOG_PATH = os.path.join(DOWNLOAD_BASE_DIR, "processed_log.json")
 
