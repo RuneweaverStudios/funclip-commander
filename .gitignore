@@ -8,6 +8,10 @@ __pycache__/
 venv/
 env/
 
+# Buzz virtual environment (created by install_buzz_venv.sh)
+scripts/buzz_venv/
+buzz_venv/
+
 # IDE / OS
 .DS_Store
 .idea/

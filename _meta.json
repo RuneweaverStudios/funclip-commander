@@ -1,11 +1,19 @@
 {
   "schema": "openclaw.skill.v1",
   "name": "funclip-commander",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "Funclip Commander",
-  "description": "Integrates OpenClaw with the FunClip AI video editor to enable AI-powered video recognition and clipping via command line.",
+  "description": "AI-powered video recognition and clipping via FunClip. Supports Buzz (offline), OpenAI Whisper (cloud), and FunASR backends with configurable language.",
   "author": "RuneweaverStudios",
-  "tags": ["video", "ai", "speech-recognition", "clipping", "openclaw"],
+  "main": "scripts/funclip_commander.py",
+  "tags": [
+    "video",
+    "speech-recognition",
+    "clipping",
+    "subtitles",
+    "transcription",
+    "openclaw"
+  ],
   "platform": "openclaw",
   "icon": "\ud83c\udfac",
   "color": "#FF5733"

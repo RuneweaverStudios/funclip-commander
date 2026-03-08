@@ -1,67 +1,69 @@
 # Funclip Commander for OpenClaw
 
-**Leverage the power of FunClip AI Video Editor with OpenClaw!**
+**AI-powered video recognition and clipping via FunClip.**
 
-This OpenClaw skill provides a seamless interface to the open-source [FunClip](https://github.com/modelscope/FunClip) AI video editing tool. Automate video speech recognition, subtitle generation, and intelligent clipping directly within your OpenClaw workflows.
+## Quick start
+
+```bash
+# Install to OpenClaw skills directory
+git clone https://github.com/RuneweaverStudios/funclip-commander.git
+cp -r funclip-commander ~/.openclaw/workspace/skills/
+
+# Recognize speech in a video
+python3 ~/.openclaw/workspace/skills/funclip-commander/scripts/funclip_commander.py \
+  recognize_video ./my_video.mp4 ./output/
+
+# Clip a segment by text
+python3 ~/.openclaw/workspace/skills/funclip-commander/scripts/funclip_commander.py \
+  clip_video ./my_video.mp4 ./output/ \
+  --srt_file_path ./output/my_video.srt \
+  --dest_text "the part I want to clip"
+```
 
 ## Features
 
--   **AI-Powered Speech Recognition**: Transcribe audio from your video files.
--   **SRT Subtitle Generation**: Automatically generate subtitles for your videos.
--   **Intelligent Video Clipping**: Extract specific video segments based on text, duration, or speaker identification.
--   **OpenClaw Integration**: Orchestrate complex video editing tasks with other OpenClaw skills.
+- **Speech recognition** -- Transcribe audio from video files to SRT subtitles
+- **Video clipping** -- Extract segments by text match, timestamps, or speaker
+- **Multiple ASR backends** -- Buzz (offline/local), OpenAI Whisper (cloud), or FunASR (FunClip native)
+- **Configurable language** -- Set language in `config.json` (default: `en`)
+- **YouTube support** -- Accepts YouTube URLs directly (requires `yt-dlp`)
 
-## Installation
+## Prerequisites
 
-1.  **Clone FunClip**: Ensure the OpenClaw agent has cloned the `FunClip` repository into your workspace at `FunClip/`.
-    ```bash
-    git clone https://github.com/modelscope/FunClip /Users/ghost/.openclaw/workspace/FunClip
-    ```
-2.  **Install FunClip Dependencies**: Navigate to the `FunClip` directory, create a Python virtual environment, and install its `requirements.txt`.
-    ```bash
-    cd /Users/ghost/.openclaw/workspace/FunClip
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install -r requirements.txt
-    deactivate # Optional: Deactivate after install
-    ```
-3.  **Install `ffmpeg`, `ffprobe`, `imagemagick`**: Ensure these are installed and accessible in your system's PATH.
-    *   On macOS via Homebrew: `brew install ffmpeg imagemagick`
-    *   On Ubuntu: `sudo apt-get install ffmpeg imagemagick`
-4.  **Download FunClip Font**: 
-    ```bash
-    cd /Users/ghost/.openclaw/workspace/FunClip
-    mkdir -p font # if it doesn't exist
-    curl -o font/STHeitiMedium.ttc https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/STHeitiMedium.ttc
-    ```
-
-### Optional: Buzz for speech-to-text (offline, Python 3.12)
-
-[Buzz](https://github.com/chidiwilliams/buzz) uses Whisper locally. It requires **Python 3.12** (not 3.13+). To fix the Python version issue and use Buzz for transcriptions:
-
-1. Install Python 3.12 (e.g. `brew install python@3.12` or `pyenv install 3.12`).
-2. Run the Buzz venv installer:
-   ```bash
-   bash /Users/ghost/.openclaw/workspace/skills/funclip-commander/scripts/install_buzz_venv.sh
-   ```
-3. The script creates a dedicated Python 3.12 venv and installs `buzz-captions`. Add the printed `buzz_python` path to `config.json` and set `"use_buzz_for_recognition": true`.
-
-## Usage (OpenClaw Commands)
-
-This skill will expose commands (to be defined) that wrap FunClip's command-line interface. For example:
-
--   `funclip.recognize(video_path='path/to/video.mp4')`
--   `funclip.clip(video_path='path/to/video.mp4', dest_text='text to clip by')`
-
-Check `SKILL.md` for full command details once the implementation is complete.
+1. **FunClip** cloned and installed with its dependencies in a virtualenv
+2. **ffmpeg** and **ffprobe** on PATH
+3. **yt-dlp** on PATH (for YouTube URLs)
+4. **imagemagick** (optional, for embedded subtitles)
 
 ## Configuration
 
-Edit `config.json` in the skill directory to adjust paths to your FunClip installation and virtual environment.
+Edit `config.json` to set paths and ASR backend:
 
 ```json
 {
-  "funclip_path": "/Users/ghost/.openclaw/workspace/FunClip",
-  "venv_path": "/Users/ghost/.openclaw/workspace/FunClip/.venv"
+  "funclip_path": "${OPENCLAW_HOME}/workspace/ClawClip",
+  "venv_path": "${OPENCLAW_HOME}/workspace/ClawClip/.venv",
+  "language": "en",
+  "use_buzz_for_recognition": true,
+  "buzz_python": "${SKILL_DIR}/scripts/buzz_venv/bin/python3",
+  "buzz_model": "tiny.en",
+  "use_whisper_for_recognition": false,
+  "whisper_model": "whisper-1"
 }
 ```
+
+All paths support `${OPENCLAW_HOME}` and `${SKILL_DIR}` placeholder expansion.
+
+### Optional: Buzz for offline ASR
+
+```bash
+bash scripts/install_buzz_venv.sh
+```
+
+This creates a Python 3.12 virtualenv at `scripts/buzz_venv/` with `buzz-captions`. Requires Python 3.12 (not 3.13+).
+
+See `SKILL.md` for the full command reference and backend details.
+
+## License
+
+MIT

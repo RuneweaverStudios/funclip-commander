@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+"""
+Funclip Commander -- AI-powered video recognition and clipping via OpenClaw.
+
+Usage:
+  python3 funclip_commander.py recognize_video <file_or_url> <output_dir> [--whisper] [--buzz] [--language LANG]
+  python3 funclip_commander.py clip_video <file_or_url> <output_dir> --srt_file_path <srt> [options]
+"""
+
 import os
 import subprocess
 import json
@@ -209,8 +218,8 @@ def _transcribe_audio_with_buzz(audio_path: str, output_srt_path: str) -> str:
         "--output-format", "srt",
         "--file-format", "srt", 
         "--output-file", output_srt_path,
-        "--language", "en", 
-        "--model", "tiny.en" # Or configurable
+        "--language", _config.get("language", "en"),
+        "--model", _config.get("buzz_model", "tiny.en")
     ]
     logging.info(f"Running Buzz command: {' '.join(command)}")
     current_env = os.environ.copy()
@@ -297,7 +306,7 @@ def _run_clawclip_command(stage, video_filepath_for_processing, analysis_output_
         "--stage", str(stage),
         "--file", funclip_file_path,
         "--output_dir", funclip_output_dir,
-        "--lang", "en" 
+        "--lang", _config.get("language", "en")
     ]
 
     for key, value in kwargs.items():

@@ -1,8 +1,8 @@
 ---
 name: funclip-commander
 displayName: Funclip Commander
-description: Integrates OpenClaw with the FunClip AI video editor to enable AI-powered video recognition and clipping via command line.
-version: 0.1.0
+description: AI-powered video recognition and clipping via FunClip. Supports Buzz (offline), OpenAI Whisper (cloud), and FunASR backends with configurable language.
+version: 0.2.0
 ---
 
 # Funclip Commander Skill
@@ -43,6 +43,8 @@ This skill will expose functions to:
 - **buzz_python**: Path to the Python executable within Buzz's virtual environment (e.g., `${SKILL_DIR}/scripts/buzz_venv/bin/python3`). Supports `${SKILL_DIR}` and `${OPENCLAW_HOME}` placeholders. Buzz 1.4.x requires Python 3.12 or older.
 - **use_whisper_for_recognition**: `true` to use OpenAI Whisper API for ASR. Conflicts with `use_buzz_for_recognition`.
 - **whisper_model**: Whisper model to use (default: `whisper-1`). Requires `OPENAI_API_KEY` to be configured in Gateway.
+- **language**: ISO 639-1 language code for ASR (default: `en`). Used by both Buzz and FunClip native backends.
+- **buzz_model**: Whisper model size for Buzz (default: `tiny.en`). Use `tiny`, `base`, `small`, `medium`, or `large` for multilingual support.
 
 Recognition Backends (selected via config, `buzz` has priority over `whisper`):
 

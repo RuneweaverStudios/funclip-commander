@@ -5,5 +5,7 @@
   "whisper_model": "whisper-1",
   "buzz_python": "${SKILL_DIR}/scripts/buzz_venv/bin/python3",
   "use_buzz_for_recognition": true,
-  "version": "0.1.0"
+  "language": "en",
+  "buzz_model": "tiny.en",
+  "version": "0.2.0"
 }
