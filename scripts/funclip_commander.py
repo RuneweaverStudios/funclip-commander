@@ -433,6 +433,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     try:
+        global _config
         exec_config = load_config()
         if args.whisper:
             exec_config["use_whisper_for_recognition"] = True
@@ -441,7 +442,7 @@ if __name__ == '__main__':
             exec_config["use_buzz_for_recognition"] = True
             exec_config["use_whisper_for_recognition"] = False
 
-        # REMOVED_GLOBAL_CONFIG_DECLARATION
+        # Fix: update the module-level _config so CLI flags take effect
         _config = exec_config
 
         if args.action == 'recognize_video':
