@@ -24,6 +24,10 @@ The Funclip Commander skill acts as a bridge between OpenClaw's agentic capabili
 3.  **`imagemagick`**: (Optional, for embedded subtitles) Must be installed and configured as per FunClip's `README.md`.
 4.  **`yt-dlp`**: Required for downloading YouTube videos. Must be available in the system’s PATH.
 
+### Buzz Setup (optional, for offline ASR)
+
+The `scripts/install_buzz_venv.sh` script creates a dedicated Python 3.12 virtualenv (`scripts/buzz_venv/`) and installs `buzz-captions`. Run it once to enable the Buzz offline Whisper backend. The script automatically updates `config.json` with the path (if `jq` is installed).
+
 ## Usage
 
 This skill will expose functions to:
@@ -33,10 +37,10 @@ This skill will expose functions to:
 
 ## Configuration (`config.json`)
 
-- **funclip_path**: Path to the ClawClip repo (e.g. `workspace/ClawClip`).
-- **venv_path**: Path to ClawClip's virtual environment (e.g. `workspace/ClawClip/.venv`).
+- **funclip_path**: Path to the ClawClip repo. Supports `${OPENCLAW_HOME}` and `${SKILL_DIR}` placeholders for portability (e.g. `${OPENCLAW_HOME}/workspace/ClawClip`).
+- **venv_path**: Path to ClawClip's virtual environment (e.g. `${OPENCLAW_HOME}/workspace/ClawClip/.venv`).
 - **use_buzz_for_recognition**: `true` to use Buzz for ASR (default if key/path provided). Requires `buzz_python`.
-- **buzz_python**: Full path to the Python executable within Buzz's virtual environment (e.g., `/Users/ghost/.openclaw/workspace/ClawClip/buzz_venv/bin/python3`). Buzz 1.4.x requires Python 3.12 or older.
+- **buzz_python**: Path to the Python executable within Buzz's virtual environment (e.g., `${SKILL_DIR}/scripts/buzz_venv/bin/python3`). Supports `${SKILL_DIR}` and `${OPENCLAW_HOME}` placeholders. Buzz 1.4.x requires Python 3.12 or older.
 - **use_whisper_for_recognition**: `true` to use OpenAI Whisper API for ASR. Conflicts with `use_buzz_for_recognition`.
 - **whisper_model**: Whisper model to use (default: `whisper-1`). Requires `OPENAI_API_KEY` to be configured in Gateway.
 
@@ -48,4 +52,32 @@ Recognition Backends (selected via config, `buzz` has priority over `whisper`):
 
 ## Commands
 
-This section would list the commands exposed by the OpenClaw skill to interact with FunClip.
+### Recognize video (speech-to-text)
+
+```bash
+python3 <skill-dir>/scripts/funclip_commander.py recognize_video <file_or_url> <output_dir> [--whisper] [--buzz]
+```
+
+- `<file_or_url>` — Local video file path or YouTube URL.
+- `<output_dir>` — Directory for output audio (.wav) and subtitles (.srt).
+- `--whisper` — Force OpenAI Whisper API backend (overrides config).
+- `--buzz` — Force Buzz offline backend (overrides config).
+
+### Clip video
+
+```bash
+python3 <skill-dir>/scripts/funclip_commander.py clip_video <file_or_url> <output_dir> --srt_file_path <srt> [--dest_text "text"] [--start_ost 0] [--end_ost 0] [--output_file clip.mp4]
+```
+
+- `--srt_file_path` — Path to SRT subtitle file (from recognize step).
+- `--dest_text` — Text segment to search for and clip.
+- `--start_ost` / `--end_ost` — Start/end offset in milliseconds.
+- `--output_file` — Custom output filename.
+
+### Install Buzz venv
+
+```bash
+bash <skill-dir>/scripts/install_buzz_venv.sh
+```
+
+Creates a Python 3.12 virtualenv at `<skill-dir>/scripts/buzz_venv/` with `buzz-captions` installed. Updates `config.json` with the correct `buzz_python` path (requires `jq`).

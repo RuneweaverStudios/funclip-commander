@@ -5,7 +5,7 @@
   "displayName": "Funclip Commander",
   "description": "Integrates OpenClaw with the FunClip AI video editor to enable AI-powered video recognition and clipping via command line.",
   "author": "RuneweaverStudios",
-  "tags": [],
+  "tags": ["video", "ai", "speech-recognition", "clipping", "openclaw"],
   "platform": "openclaw",
   "icon": "\ud83c\udfac",
   "color": "#FF5733"

@@ -19,23 +19,43 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Get base path from the skill's config.json
-SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(SKILL_DIR, "..", "config.json")
+SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIG_PATH = os.path.join(SKILL_DIR, "config.json")
+OPENCLAW_HOME = os.environ.get("OPENCLAW_HOME", os.path.join(os.path.expanduser("~"), ".openclaw"))
 
-def load_config():
+
+def _expand_config_path(value: str) -> str:
+    """Expand ${OPENCLAW_HOME} and ${SKILL_DIR} placeholders in config values."""
+    if not isinstance(value, str):
+        return value
+    value = value.replace("${OPENCLAW_HOME}", OPENCLAW_HOME)
+    value = value.replace("${SKILL_DIR}", SKILL_DIR)
+    return os.path.expanduser(value)
+
+
+def load_config() -> dict:
     try:
         with open(CONFIG_PATH, 'r') as f:
-            return json.load(f)
+            raw = json.load(f)
     except FileNotFoundError:
         logging.error(f"Config file not found at {CONFIG_PATH}")
         return {}
+    except json.JSONDecodeError as e:
+        logging.error(f"Invalid JSON in config file {CONFIG_PATH}: {e}")
+        return {}
+    # Expand path placeholders in string values
+    expanded = {}
+    for k, v in raw.items():
+        expanded[k] = _expand_config_path(v) if isinstance(v, str) else v
+    return expanded
 
-_config = load_config() # Use a private variable to avoid direct global modification
 
-CLAWCLIP_BASE_PATH = _config.get("funclip_path")
-VENV_PATH = _config.get("venv_path")
-python_executable = os.path.join(VENV_PATH, "bin", "python3")
-BUZZ_PYTHON_EXECUTABLE = _config.get("buzz_python")
+_config = load_config()
+
+CLAWCLIP_BASE_PATH = _config.get("funclip_path", "")
+VENV_PATH = _config.get("venv_path", "")
+python_executable = os.path.join(VENV_PATH, "bin", "python3") if VENV_PATH else ""
+BUZZ_PYTHON_EXECUTABLE = _config.get("buzz_python", "")
 
 DOWNLOAD_BASE_DIR = os.path.join(SKILL_DIR, "..", "..", "youtube_downloads")
 os.makedirs(DOWNLOAD_BASE_DIR, exist_ok=True)
@@ -56,9 +76,20 @@ def _save_processed_log(log_data):
     with open(PROCESSED_LOG_PATH, 'w') as f:
         json.dump(log_data, f, indent=4)
 
-def _is_youtube_url(url):
-    youtube_regex = r'(?:https?://)?(?:www\.)?(?:youtube|youtu|youtube-nocookie)\.(?:com|be)/(?:watch\?v=|embed/|v/|.+\?v=|)([a-zA-Z0-9_-]{11})'
-    return re.match(youtube_regex, url) is not None
+def _is_youtube_url(url: str) -> bool:
+    """Validate that a URL is a recognized YouTube URL format."""
+    if not isinstance(url, str) or len(url) > 2048:
+        return False
+    youtube_regex = r'(?:https?://)?(?:www\.)?(?:youtube|youtu|youtube-nocookie)\.(?:com|be)/(?:watch\?v=|embed/|v/|shorts/|.+\?v=)([a-zA-Z0-9_-]{11})'
+    match = re.match(youtube_regex, url)
+    if not match:
+        return False
+    # Validate the URL parses correctly
+    parsed = urlparse(url if url.startswith("http") else "https://" + url)
+    return parsed.hostname is not None and parsed.hostname.replace("www.", "").rstrip(".") in (
+        "youtube.com", "youtu.be", "youtube-nocookie.com"
+    )
+
 
 def download_youtube_video(url: str, output_dir: str) -> str:
     output_dir = os.path.abspath(output_dir)
@@ -72,52 +103,53 @@ def download_youtube_video(url: str, output_dir: str) -> str:
             logging.info(f"Video already downloaded: {cached}")
             return os.path.abspath(cached)
 
-    current_dir = os.getcwd()
+    output_template = os.path.join(output_dir, "%(title)s.%(ext)s")
+    command = [
+        "yt-dlp",
+        "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4",
+        "-o", output_template,
+        url
+    ]
+
+    logging.info(f"Running yt-dlp command: {' '.join(command)}")
     try:
-        os.chdir(output_dir)
+        process = subprocess.run(command, capture_output=True, text=True, check=True, cwd=output_dir)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"yt-dlp failed (exit {e.returncode}): {e.stderr}")
+        raise RuntimeError(f"yt-dlp download failed for {url}: {e.stderr}") from e
+    except FileNotFoundError:
+        raise RuntimeError("yt-dlp not found on PATH. Install it: pip install yt-dlp")
 
-        output_template = "%(title)s.%(ext)s"
-        command = [
-            "yt-dlp",
-            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4",
-            "-o", output_template,
-            url
-        ]
+    combined_output = (process.stdout or "") + "\n" + (process.stderr or "")
+    logging.info("yt-dlp stdout:")
+    logging.info(process.stdout)
+    if process.stderr:
+        logging.error("yt-dlp stderr:")
+        logging.error(process.stderr)
 
-        logging.info(f"Running yt-dlp command: {' '.join(command)}")
-        process = subprocess.run(command, capture_output=True, text=True, check=True)
-        combined_output = (process.stdout or "") + "\n" + (process.stderr or "")
-        logging.info("yt-dlp stdout:")
-        logging.info(process.stdout)
-        if process.stderr:
-            logging.error("yt-dlp stderr:")
-            logging.error(process.stderr)
-
-        downloaded_full_path = None
-        match_destination = re.search(r'\[download\] Destination: (.+)', combined_output)
-        if match_destination:
-            raw_path = match_destination.group(1).strip()
-            downloaded_full_path = os.path.abspath(raw_path) if os.path.isabs(raw_path) else os.path.join(output_dir, os.path.basename(raw_path))
-        if not downloaded_full_path or not os.path.exists(downloaded_full_path):
-            match_already_downloaded = re.search(r'\[download\] (.+?) has already been downloaded', combined_output)
-            if match_already_downloaded:
-                downloaded_filename = os.path.basename(match_already_downloaded.group(1).strip())
-                downloaded_full_path = os.path.join(output_dir, downloaded_filename)
-        if not downloaded_full_path or not os.path.exists(downloaded_full_path):
-            for name in sorted(os.listdir(output_dir), key=lambda n: os.path.getmtime(os.path.join(output_dir, n)), reverse=True):
-                p = os.path.join(output_dir, name)
-                if os.path.isfile(p) and name.lower().endswith(('.mp4', '.mkv', '.webm', '.m4a')):
-                    downloaded_full_path = os.path.abspath(p)
-                    logging.info(f"Using most recent video in output dir: {downloaded_full_path}")
-                    break
-        if not downloaded_full_path or not os.path.exists(downloaded_full_path):
-            raise Exception("YouTube download failed or filename not reliably found from yt-dlp output.")
-        downloaded_full_path = os.path.abspath(downloaded_full_path)
-        processed_log[url] = {"video_path": downloaded_full_path}
-        _save_processed_log(processed_log)
-        return downloaded_full_path
-    finally:
-        os.chdir(current_dir) 
+    downloaded_full_path = None
+    match_destination = re.search(r'\[download\] Destination: (.+)', combined_output)
+    if match_destination:
+        raw_path = match_destination.group(1).strip()
+        downloaded_full_path = os.path.abspath(raw_path) if os.path.isabs(raw_path) else os.path.join(output_dir, os.path.basename(raw_path))
+    if not downloaded_full_path or not os.path.exists(downloaded_full_path):
+        match_already_downloaded = re.search(r'\[download\] (.+?) has already been downloaded', combined_output)
+        if match_already_downloaded:
+            downloaded_filename = os.path.basename(match_already_downloaded.group(1).strip())
+            downloaded_full_path = os.path.join(output_dir, downloaded_filename)
+    if not downloaded_full_path or not os.path.exists(downloaded_full_path):
+        for name in sorted(os.listdir(output_dir), key=lambda n: os.path.getmtime(os.path.join(output_dir, n)), reverse=True):
+            p = os.path.join(output_dir, name)
+            if os.path.isfile(p) and name.lower().endswith(('.mp4', '.mkv', '.webm', '.m4a')):
+                downloaded_full_path = os.path.abspath(p)
+                logging.info(f"Using most recent video in output dir: {downloaded_full_path}")
+                break
+    if not downloaded_full_path or not os.path.exists(downloaded_full_path):
+        raise RuntimeError("YouTube download failed or filename not reliably found from yt-dlp output.")
+    downloaded_full_path = os.path.abspath(downloaded_full_path)
+    processed_log[url] = {"video_path": downloaded_full_path}
+    _save_processed_log(processed_log)
+    return downloaded_full_path
 
 def _extract_audio_from_video(video_path: str, output_audio_path: str) -> str:
     video_path = os.path.abspath(video_path)
@@ -135,14 +167,20 @@ def _extract_audio_from_video(video_path: str, output_audio_path: str) -> str:
     command = [
         "ffmpeg",
         "-i", video_path,
-        "-vn", 
-        "-acodec", "pcm_s16le", 
-        "-ar", "16000", 
-        "-ac", "1", 
+        "-vn",
+        "-acodec", "pcm_s16le",
+        "-ar", "16000",
+        "-ac", "1",
         output_audio_path
     ]
     logging.info(f"Running ffmpeg command: {' '.join(command)}")
-    process = subprocess.run(command, capture_output=True, text=True, check=True)
+    try:
+        process = subprocess.run(command, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"ffmpeg failed (exit {e.returncode}): {e.stderr}")
+        raise RuntimeError(f"Audio extraction failed for {video_path}: {e.stderr}") from e
+    except FileNotFoundError:
+        raise RuntimeError("ffmpeg not found on PATH. Install it: brew install ffmpeg")
     logging.info("FFmpeg stdout:")
     logging.info(process.stdout)
     if process.stderr:
@@ -433,17 +471,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     try:
-        global _config
-        exec_config = load_config()
+        # Apply CLI overrides to the module-level config
         if args.whisper:
-            exec_config["use_whisper_for_recognition"] = True
-            exec_config["use_buzz_for_recognition"] = False
+            _config["use_whisper_for_recognition"] = True
+            _config["use_buzz_for_recognition"] = False
         elif args.buzz:
-            exec_config["use_buzz_for_recognition"] = True
-            exec_config["use_whisper_for_recognition"] = False
-
-        # Fix: update the module-level _config so CLI flags take effect
-        _config = exec_config
+            _config["use_buzz_for_recognition"] = True
+            _config["use_whisper_for_recognition"] = False
 
         if args.action == 'recognize_video':
             video_filepath, audio_filepath, srt_filepath, srt_content = recognize_video(args.file_path_or_url, args.output_dir)

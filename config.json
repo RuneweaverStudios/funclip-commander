@@ -1,9 +1,9 @@
 {
-  "funclip_path": "/Users/ghost/.openclaw/workspace/ClawClip",
-  "venv_path": "/Users/ghost/.openclaw/workspace/ClawClip/.venv",
+  "funclip_path": "${OPENCLAW_HOME}/workspace/ClawClip",
+  "venv_path": "${OPENCLAW_HOME}/workspace/ClawClip/.venv",
   "use_whisper_for_recognition": false,
   "whisper_model": "whisper-1",
-  "buzz_python": "/Users/ghost/.openclaw/workspace/skills/funclip-commander/scripts/buzz_venv/bin/python3",
+  "buzz_python": "${SKILL_DIR}/scripts/buzz_venv/bin/python3",
   "use_buzz_for_recognition": true,
   "version": "0.1.0"
 }
