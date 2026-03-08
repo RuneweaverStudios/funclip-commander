@@ -67,11 +67,16 @@ python_executable = os.path.join(VENV_PATH, "bin", "python3") if VENV_PATH else 
 BUZZ_PYTHON_EXECUTABLE = _config.get("buzz_python", "")
 
 DOWNLOAD_BASE_DIR = os.path.join(SKILL_DIR, "..", "..", "youtube_downloads")
-os.makedirs(DOWNLOAD_BASE_DIR, exist_ok=True)
 
 PROCESSED_LOG_PATH = os.path.join(DOWNLOAD_BASE_DIR, "processed_log.json")
 
+
+def _ensure_download_dir():
+    """Lazily create the download directory when actually needed."""
+    os.makedirs(DOWNLOAD_BASE_DIR, exist_ok=True)
+
 def _load_processed_log():
+    _ensure_download_dir()
     if os.path.exists(PROCESSED_LOG_PATH):
         with open(PROCESSED_LOG_PATH, 'r') as f:
             try:
@@ -82,6 +87,7 @@ def _load_processed_log():
     return {}
 
 def _save_processed_log(log_data):
+    _ensure_download_dir()
     with open(PROCESSED_LOG_PATH, 'w') as f:
         json.dump(log_data, f, indent=4)
 

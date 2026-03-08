@@ -16,5 +16,8 @@
   ],
   "platform": "openclaw",
   "icon": "\ud83c\udfac",
-  "color": "#FF5733"
+  "color": "#FF5733",
+  "requires": {
+    "anyBins": ["ffmpeg", "yt-dlp"]
+  }
 }
