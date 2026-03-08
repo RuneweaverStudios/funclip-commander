@@ -176,11 +176,11 @@ def _extract_audio_from_video(video_path: str, output_audio_path: str) -> str:
     logging.info(f"Running ffmpeg command: {' '.join(command)}")
     try:
         process = subprocess.run(command, capture_output=True, text=True, check=True)
+    except FileNotFoundError:
+        raise RuntimeError("ffmpeg not found on PATH. Install it: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)")
     except subprocess.CalledProcessError as e:
         logging.error(f"ffmpeg failed (exit {e.returncode}): {e.stderr}")
-        raise RuntimeError(f"Audio extraction failed for {video_path}: {e.stderr}") from e
-    except FileNotFoundError:
-        raise RuntimeError("ffmpeg not found on PATH. Install it: brew install ffmpeg")
+        raise RuntimeError(f"Audio extraction failed for {video_path}: {(e.stderr or '')[:500]}") from e
     logging.info("FFmpeg stdout:")
     logging.info(process.stdout)
     if process.stderr:
@@ -216,7 +216,13 @@ def _transcribe_audio_with_buzz(audio_path: str, output_srt_path: str) -> str:
     current_env = os.environ.copy()
     # Ensure buzz's venv bin is in PATH for any internal buzz executables/scripts
     current_env["PATH"] = os.path.dirname(BUZZ_PYTHON_EXECUTABLE) + os.pathsep + current_env["PATH"]
-    process = subprocess.run(command, capture_output=True, text=True, check=True, env=current_env)
+    try:
+        process = subprocess.run(command, capture_output=True, text=True, check=True, env=current_env)
+    except FileNotFoundError:
+        raise Exception(f"Buzz Python executable not found at {BUZZ_PYTHON_EXECUTABLE}. Check config.json 'buzz_python' setting.")
+    except subprocess.CalledProcessError as e:
+        stderr = (e.stderr or "").strip()
+        raise Exception(f"Buzz transcription failed (exit code {e.returncode}): {stderr[:500] or 'unknown error'}")
     logging.info("Buzz stdout:")
     logging.info(process.stdout)
     if process.stderr:
@@ -301,14 +307,20 @@ def _run_clawclip_command(stage, video_filepath_for_processing, analysis_output_
             command.append(str(value))
 
     logging.info(f"Running ClawClip command: {' '.join(command)}")
-    process = subprocess.run(command, capture_output=True, text=True, check=True)
+    try:
+        process = subprocess.run(command, capture_output=True, text=True, check=True)
+    except FileNotFoundError:
+        raise Exception(f"ClawClip Python executable not found at {python_executable}. Check config.json 'venv_path' setting.")
+    except subprocess.CalledProcessError as e:
+        stderr = (e.stderr or "").strip()
+        raise Exception(f"ClawClip stage {stage} failed (exit code {e.returncode}): {stderr[:500] or 'unknown error'}")
     logging.info("ClawClip stdout:")
     logging.info(process.stdout)
     if process.stderr:
         logging.error("ClawClip stderr:")
         logging.error(process.stderr)
-    
-    return (process.stdout, funclip_file_path) 
+
+    return (process.stdout, funclip_file_path)
 
 
 def recognize_video(file_path_or_url: str, output_dir: str):
@@ -446,7 +458,10 @@ def clip_video(file_path_or_url: str, output_dir: str, srt_file_path: str, dest_
 
     total_srt_file = os.path.join(os.path.abspath(output_dir), "total.srt")
     if srt_file_path and os.path.exists(srt_file_path) and not os.path.exists(total_srt_file):
-        subprocess.run(["cp", srt_file_path, total_srt_file], check=True)
+        try:
+            subprocess.run(["cp", srt_file_path, total_srt_file], check=True)
+        except subprocess.CalledProcessError as e:
+            raise Exception(f"Failed to copy SRT file to {total_srt_file}: {e}")
         logging.info(f"Copied provided SRT ({srt_file_path}) to {total_srt_file} for ClawClip Stage 2 compatibility.")
     elif not os.path.exists(total_srt_file):
         logging.error(f"Error: For stage 2, total.srt was not found in {output_dir} and no valid srt_file_path was provided or found.")
